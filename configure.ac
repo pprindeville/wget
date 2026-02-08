@@ -186,14 +186,6 @@ AS_IF([test "x$ENABLE_DIGEST" = xyes],
 )
 
 
-dnl NTLM: Support for HTTP NTLM Authentication
-AC_ARG_ENABLE([ntlm],
-  [AS_HELP_STRING([--disable-ntlm], [disable support for NTLM authorization])],
-  [ENABLE_NTLM=$enableval],
-  [ENABLE_NTLM=auto]
-)
-
-
 dnl Debug: Support for printing debugging output
 AC_ARG_ENABLE([debug],
   [AS_HELP_STRING([--disable-debug], [disable support for debugging output])],
@@ -523,7 +515,7 @@ AS_IF([test x"$with_ssl" = xopenssl], [
       ssl_library="openssl"
       LIBS="$OPENSSL_LIBS $LIBS"
       CFLAGS="$OPENSSL_CFLAGS -DHAVE_LIBSSL $CFLAGS"
-      LIBSSL=" " # ntlm check below wants this
+      LIBSSL=""
       AC_CHECK_FUNCS([RAND_egd])
       AC_DEFINE([HAVE_LIBSSL], [1], [Define if using openssl.])
       ssl_found=yes
@@ -623,37 +615,6 @@ AS_IF([test x"$with_ssl" = xopenssl], [
   ]) # endif: --with-ssl != no?
 ]) # endif: --with-ssl == openssl?
 
-dnl Enable NTLM if requested and if SSL is available.
-if test x"$ENABLE_NTLM" != xno
-then
-  if test x"$LIBSSL" != x || test "$ac_cv_lib_ssl32_SSL_connect" = yes
-  then
-    ENABLE_NTLM=yes
-    AC_DEFINE([ENABLE_NTLM], 1, [Define if you want the NTLM authorization support compiled in.])
-  else
-    PKG_CHECK_MODULES([NETTLE], nettle, [
-      HAVE_NETTLE=yes
-      LIBS="$NETTLE_LIBS $LIBS"
-      CFLAGS="$NETTLE_CFLAGS $CFLAGS"
-    ], [
-      AC_CHECK_LIB(nettle, nettle_md4_init, [HAVE_NETTLE=yes], [HAVE_NETTLE=no; AC_MSG_WARN(*** libnettle was not found. You will not be able to use NTLM)])
-      if test x"$HAVE_NETTLE" != xyes; then
-        if  test x"$ENABLE_NTLM" = xyes; then
-          AC_MSG_ERROR([NTLM authorization requested and SSL not enabled; aborting])
-        fi
-      else
-        AC_SUBST(NETTLE_LIBS, "-lnettle")
-        LIBS="$NETTLE_LIBS $LIBS"
-      fi
-    ])
-
-    if test x"$HAVE_NETTLE" = xyes; then
-      AC_DEFINE([HAVE_NETTLE], [1], [Use libnettle])
-      ENABLE_NTLM=yes
-      AC_DEFINE([ENABLE_NTLM], 1, [Define if you want the NTLM authorization support compiled in.])
-    fi
-  fi
-fi
 
 dnl **********************************************************************
 dnl Checks for IPv6

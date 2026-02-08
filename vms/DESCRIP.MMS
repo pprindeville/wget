@@ -20,7 +20,7 @@
 #                   Link with /DEBUG /TRACEBACK.
 #                   (Default is /NOTRACEBACK.)
 #
-#    HPSSL=1        Enable HTTPS (and NTLM) support using HP SSL.
+#    HPSSL=1        Enable HTTPS support using HP SSL.
 #
 #    LARGE=1        Enable large-file (>2GB) support.  Non-VAX only.
 #
@@ -42,7 +42,7 @@
 #                   source kit was extracted using VMSTAR with the
 #                   /UNDERDOT ("-u") option.
 #
-#    OSSL=1         Enable HTTPS (and NTLM) support using OpenSSL.
+#    OSSL=1         Enable HTTPS support using OpenSSL.
 #
 #
 # The default target, ALL, builds all the product executables.

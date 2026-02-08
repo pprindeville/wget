@@ -34,7 +34,7 @@ ifeq ($(USE_OPENSSL),1)
   CFLAGS  += -DHAVE_OPENSSL -DHAVE_SSL -DOPENSSL_NO_KRB5 -I$(OPENSSL_ROOT)
   EX_LIBS += $(OPENSSL_ROOT)/lib/libssl.a $(OPENSSL_ROOT)/lib/libcrypt.a \
              $(ZLIB_ROOT)/libz.a
-  SOURCES += openssl.c http-ntlm.c
+  SOURCES += openssl.c
 endif
 
 ifeq ($(USE_IPV6),1)

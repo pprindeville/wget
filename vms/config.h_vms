@@ -49,9 +49,6 @@
    language is requested. */
 /* #undef ENABLE_NLS */
 
-/* Define if you want the NTLM authorization support compiled in. */
-/* #undef ENABLE_NTLM */
-
 /* Define if you want the Opie support for FTP compiled in. */
 #define ENABLE_OPIE 1
 

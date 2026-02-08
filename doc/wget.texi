@@ -1376,7 +1376,7 @@ that are not parsed by Wget.
 Specify the username @var{user} and password @var{password} on an
 @sc{http} server.  According to the type of the challenge, Wget will
 encode them using either the @code{basic} (insecure),
-the @code{digest}, or the Windows @code{NTLM} authentication scheme.
+or the @code{digest} authentication scheme.
 
 Another way to specify username and password is in the @sc{url} itself
 (@pxref{URL Format}).  Either method reveals your password to anyone who

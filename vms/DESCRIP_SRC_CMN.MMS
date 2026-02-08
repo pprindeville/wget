@@ -87,14 +87,14 @@ CDEFS_LARGE =
 .ENDIF                          # LARGE [else]
 
 .IFDEF HPSSL                    # HPSSL
-CDEFS_SSL = , "HAVE_SSL", "ENABLE_NTLM"
+CDEFS_SSL = , "HAVE_SSL"
 SSL_LINK_OPT = , [-.VMS]WGET_SSL_HP.OPT /OPTIONS
 .IFDEF OSSL                         # OSSL
 HPSSL_OSSL = 1
 .ENDIF                              # OSSL
 .ELSE                           # HPSSL
 .IFDEF OSSL                         # OSSL
-CDEFS_SSL = , "HAVE_LIBSSL", "ENABLE_NTLM"
+CDEFS_SSL = , "HAVE_LIBSSL"
 SSL_LINK_OPT = , [-.VMS]WGET_SSL_O.OPT /OPTIONS
 .ELSE                               # OSSL
 CDEFS_SSL =

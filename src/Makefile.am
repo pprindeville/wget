@@ -70,10 +70,6 @@ if OS_MSWINDOWS
 wget_SOURCES += mswindows.c mswindows.h
 endif
 
-if WITH_NTLM
-wget_SOURCES += http-ntlm.c http-ntlm.h
-endif
-
 if WITH_OPENSSL
 wget_SOURCES += openssl.c
 endif

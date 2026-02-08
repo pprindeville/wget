@@ -52,9 +52,6 @@ as that of the covered work.  */
 #ifdef HAVE_SSL
 # include "ssl.h"
 #endif
-#ifdef ENABLE_NTLM
-# include "http-ntlm.h"
-#endif
 #include "cookies.h"
 #include "md5.h"
 #include "convert.h"
@@ -1371,17 +1368,6 @@ static struct {
 
   /* Whether a ssl handshake has occurred on this connection.  */
   bool ssl;
-
-  /* Whether the connection was authorized.  This is only done by
-     NTLM, which authorizes *connections* rather than individual
-     requests.  (That practice is peculiar for HTTP, but it is a
-     useful optimization.)  */
-  bool authorized;
-
-#ifdef ENABLE_NTLM
-  /* NTLM data of the current connection.  */
-  struct ntlmdata ntlm;
-#endif
 } pconn;
 
 /* Mark the persistent connection as invalid and free the resources it
@@ -1432,7 +1418,6 @@ register_persistent (const char *host, int port, int fd, bool ssl)
   pconn.host = xstrdup (host);
   pconn.port = port;
   pconn.ssl = ssl;
-  pconn.authorized = false;
 
   DEBUGP (("Registered socket %d for persistent reuse.\n", fd));
 }
@@ -2099,11 +2084,6 @@ establish_connection (const struct url *u, const struct url **conn_ref,
                         quotearg_style (escape_quoting_style, pconn.host),
                         pconn.port);
           DEBUGP (("Reusing fd %d.\n", sock));
-          if (pconn.authorized)
-            /* If the connection is already authorized, the "Basic"
-               authorization added by code above is unnecessary and
-               only hurts us.  */
-            request_remove_header (req, "Authorization");
         }
       else if (host_lookup_failed)
         {
@@ -2375,13 +2355,12 @@ check_file_output (const struct url *u, struct http_stat *hs,
 
 static uerr_t
 check_auth (const struct url *u, char *user, char *passwd, struct response *resp,
-            struct request *req, bool *ntlm_seen_ref, bool *retry,
+            struct request *req, bool *retry,
             bool *basic_auth_finished_ref, bool *auth_finished_ref)
 {
   uerr_t auth_err = RETROK;
   bool basic_auth_finished = *basic_auth_finished_ref;
   bool auth_finished = *auth_finished_ref;
-  bool ntlm_seen = *ntlm_seen_ref;
   char buf[256], *tmp = NULL;
 
   *retry = false;
@@ -2394,10 +2373,10 @@ check_auth (const struct url *u, char *user, char *passwd, struct response *resp
       int wapos;
       const char *www_authenticate = NULL;
       const char *wabeg, *waend;
-      const char *digest = NULL, *basic = NULL, *ntlm = NULL;
+      const char *digest = NULL, *basic = NULL;
 
-      for (wapos = 0; !ntlm
-             && (wapos = resp_header_locate (resp, "WWW-Authenticate", wapos,
+      for (wapos = 0;
+             (wapos = resp_header_locate (resp, "WWW-Authenticate", wapos,
                                              &wabeg, &waend)) != -1;
            ++wapos)
         {
@@ -2417,7 +2396,7 @@ check_auth (const struct url *u, char *user, char *passwd, struct response *resp
 
           www_authenticate = tmp;
 
-          for (;!ntlm;)
+          for (;;)
             {
               /* extract the auth-scheme */
               while (c_isspace (*www_authenticate)) www_authenticate++;
@@ -2431,12 +2410,7 @@ check_auth (const struct url *u, char *user, char *passwd, struct response *resp
 
               if (known_authentication_scheme_p (name.b, name.e))
                 {
-                  if (BEGINS_WITH (name.b, "NTLM"))
-                    {
-                      ntlm = name.b;
-                      break; /* this is the most secure challenge, stop here */
-                    }
-                  else if (!digest && BEGINS_WITH (name.b, "Digest"))
+                  if (!digest && BEGINS_WITH (name.b, "Digest"))
                     digest = name.b;
                   else if (!basic && BEGINS_WITH (name.b, "Basic"))
                     basic = name.b;
@@ -2453,7 +2427,7 @@ check_auth (const struct url *u, char *user, char *passwd, struct response *resp
             }
         }
 
-      if (!basic && !digest && !ntlm)
+      if (!basic && !digest)
         {
           /* If the authentication header is missing or
              unrecognized, there's no sense in retrying.  */
@@ -2468,9 +2442,7 @@ check_auth (const struct url *u, char *user, char *passwd, struct response *resp
           auth_stat = xmalloc (sizeof (uerr_t));
           *auth_stat = RETROK;
 
-          if (ntlm)
-            www_authenticate = ntlm;
-          else if (digest)
+          if (digest)
             www_authenticate = digest;
           else
             www_authenticate = basic;
@@ -2491,9 +2463,7 @@ check_auth (const struct url *u, char *user, char *passwd, struct response *resp
             {
               request_set_header (req, "Authorization", value, rel_value);
 
-              if (BEGINS_WITH (www_authenticate, "NTLM"))
-                ntlm_seen = true;
-              else if (!u->user && BEGINS_WITH (www_authenticate, "Basic"))
+              if (!u->user && BEGINS_WITH (www_authenticate, "Basic"))
                 {
                   /* Need to register this host as using basic auth,
                    * so we automatically send creds next time. */
@@ -2519,7 +2489,6 @@ check_auth (const struct url *u, char *user, char *passwd, struct response *resp
  cleanup:
    if (tmp != buf)
      xfree (tmp);
-  *ntlm_seen_ref = ntlm_seen;
   *basic_auth_finished_ref = basic_auth_finished;
   *auth_finished_ref = auth_finished;
   return auth_err;
@@ -3195,9 +3164,6 @@ gethttp (const struct url *u, struct url *original_url, struct http_stat *hs,
    * mechanisms. */
   bool basic_auth_finished = false;
 
-  /* Whether NTLM authentication is used for this request. */
-  bool ntlm_seen = false;
-
   /* Whether our connection to the remote host is through SSL.  */
   bool using_ssl = false;
 
@@ -3620,11 +3586,9 @@ gethttp (const struct url *u, struct url *original_url, struct http_stat *hs,
             CLOSE_INVALIDATE (sock);
         }
 
-      pconn.authorized = false;
-
       {
         auth_err = check_auth (u, user, passwd, resp, req,
-                               &ntlm_seen, &retry,
+                               &retry,
                                &basic_auth_finished,
                                &auth_finished);
         if (auth_err == RETROK && retry)
@@ -3640,12 +3604,6 @@ gethttp (const struct url *u, struct url *original_url, struct http_stat *hs,
       else
         retval = auth_err;
       goto cleanup;
-    }
-  else /* statcode != HTTP_STATUS_UNAUTHORIZED */
-    {
-      /* Kludge: if NTLM is used, mark the TCP connection as authorized. */
-      if (ntlm_seen)
-        pconn.authorized = true;
     }
 
   {
@@ -5001,13 +4959,7 @@ http_atotm (const char *time_string)
 
    * `Digest' scheme, added by Junio Hamano <junio@twinsun.com>,
    consisting of answering to the server's challenge with the proper
-   MD5 digests.
-
-   * `NTLM' ("NT Lan Manager") scheme, based on code written by Daniel
-   Stenberg for libcurl.  Like digest, NTLM is based on a
-   challenge-response mechanism, but unlike digest, it is non-standard
-   (authenticates TCP connections rather than requests), undocumented
-   and Microsoft-specific.  */
+   MD5 digests.  */
 
 /* Create the authentication header contents for the `Basic' scheme.
    This is done by encoding the string "USER:PASS" to base64 and
@@ -5279,9 +5231,6 @@ known_authentication_scheme_p (const char *hdrbeg, const char *hdrend)
 #ifdef ENABLE_DIGEST
     || STARTS ("Digest", hdrbeg, hdrend)
 #endif
-#ifdef ENABLE_NTLM
-    || STARTS ("NTLM", hdrbeg, hdrend)
-#endif
     ;
 }
 
@@ -5308,15 +5257,6 @@ create_authorization_line (const char *au, const char *user,
     case 'D':                   /* Digest */
       *finished = true;
       return digest_authentication_encode (au, user, passwd, method, path, auth_err);
-#endif
-#ifdef ENABLE_NTLM
-    case 'N':                   /* NTLM */
-      if (!ntlm_input (&pconn.ntlm, au))
-        {
-          *finished = true;
-          return NULL;
-        }
-      return ntlm_output (&pconn.ntlm, user, passwd, finished);
 #endif
     default:
       /* We shouldn't get here -- this function should be only called

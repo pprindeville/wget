@@ -63,7 +63,7 @@ Build-Tarball:
         - mkdir vpath && cd vpath
         - ../configure $CONFIGURE_BASE_FLAGS --cache-file ../cache/config.cache
           --without-ssl --enable-ipv6 --without-zlib --without-libiconv-prefix
-          --disable-iri --disable-ntlm --disable-pcre --without-libpsl --without-libuuid
+          --disable-iri --disable-pcre --without-libpsl --without-libuuid
           --without-libintl-prefix
         - make -j$(nproc)
         - make -j$(nproc) syntax-check
@@ -128,7 +128,7 @@ Minimal:
         - cd wget-*/
         - ./configure $CONFIGURE_BASE_FLAGS --cache-file ../cache/config.cache
           --disable-nls --without-ssl --enable-ipv6 --without-zlib --without-libiconv-prefix
-          --disable-iri --disable-ntlm --disable-pcre --without-libpsl --without-libuuid
+          --disable-iri --disable-pcre --without-libpsl --without-libuuid
           --without-libintl-prefix
         - make -j$(nproc) check-valgrind
     tags:
